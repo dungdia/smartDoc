@@ -1,0 +1,6 @@
+.env
+venv/
+*.sqlite3
+__pycache__/
+/document_query/__pycache__/
+/core/__pycache__/
