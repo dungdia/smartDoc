@@ -1,134 +1,222 @@
-{% extends 'base.html' %}
-{% block content %}
-<div class="flex flex-col h-screen max-h-[calc(100vh-0px)] p-4">
-    <div id="chatBox" class="flex-1 h-0 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-4 mb-4 overflow-y-auto shadow-sm transition-colors duration-300"></div>
-    
-    <div class="flex items-center gap-2 pb-2 px-1">
-        <button id="importBtn" class="px-3 py-2 bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition" title="Import">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 20V4m0 0l-6 6m6-6l6 6" />
-            </svg>
-        </button>
+{% extends 'base.html' %} {% block content %}
+<div
+   class="flex flex-col h-screen max-h-[calc(100vh-0px)] p-4 bg-gray-50 dark:bg-gray-900 transition-colors duration-300"
+>
+   <div
+      id="chatBox"
+      class="flex-1 h-0 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl p-4 mb-4 overflow-y-auto shadow-sm shadow-inner transition-colors duration-300"
+   >
+      <div class="mb-4 text-left">
+         <span
+            class="inline-block bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 px-4 py-2 rounded-2xl rounded-tl-none"
+         >
+            Chào Đức! Tôi có thể giúp gì cho bạn với tài liệu này?
+         </span>
+      </div>
+   </div>
 
-        <input id="chatInput" type="text" placeholder="Nhập câu hỏi về tài liệu..." 
-               class="flex-1 px-4 py-2 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-gray-100 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-gray-400 transition-colors" />
-        
-        <button id="sendBtn" class="px-5 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition flex items-center justify-center disabled:opacity-50" disabled title="Gửi">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14m0 0l-6-6m6 6l-6 6" />
-            </svg>
-        </button>
-    </div>
+   <div class="flex items-center gap-3 pb-2 px-1">
+      <a
+         href="{% url 'file_manager' %}"
+         class="px-3 py-2 bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-300 rounded-xl hover:bg-gray-200 dark:hover:bg-gray-600 transition flex items-center justify-center"
+         title="Quản lý tài liệu"
+      >
+         <svg
+            xmlns="http://www.w3.org/2000/svg"
+            class="h-6 w-6"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+         >
+            <path
+               stroke-linecap="round"
+               stroke-linejoin="round"
+               stroke-width="2"
+               d="M12 4v16m8-8H4"
+            />
+         </svg>
+      </a>
+
+      <input
+         id="chatInput"
+         type="text"
+         placeholder="Nhập câu hỏi về tài liệu..."
+         class="flex-1 px-4 py-3 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 border border-gray-200 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-gray-400 transition-all"
+      />
+
+      <button
+         id="sendBtn"
+         class="px-5 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed shadow-md"
+         disabled
+         title="Gửi"
+      >
+         <svg
+            xmlns="http://www.w3.org/2000/svg"
+            class="h-5 w-5"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+         >
+            <path
+               stroke-linecap="round"
+               stroke-linejoin="round"
+               stroke-width="2"
+               d="M5 12h14m0 0l-6-6m6 6l-6 6"
+            />
+         </svg>
+      </button>
+   </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js"></script>
+
 <script>
-    const chatBox = document.getElementById('chatBox');
-    const chatInput = document.getElementById('chatInput');
-    const sendBtn = document.getElementById('sendBtn');
+   const chatBox = document.getElementById("chatBox");
+   const chatInput = document.getElementById("chatInput");
+   const sendBtn = document.getElementById("sendBtn");
 
-    // Hàm tránh lỗi XSS khi hiển thị text thuần
-    function escapeHtml(text) {
-        return text.replace(/[&<>"']/g, m => ({
-            '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
-        })[m]);
-    }
+   // Bảo mật: Tránh lỗi XSS khi người dùng nhập tag HTML
+   function escapeHtml(text) {
+      if (!text) return "";
+      return text.toString().replace(
+         /[&<>"']/g,
+         (m) =>
+            ({
+               "&": "&amp;",
+               "<": "&lt;",
+               ">": "&gt;",
+               '"': "&quot;",
+               "'": "&#39;",
+            })[m],
+      );
+   }
 
-    function updateSendBtn() {
-        sendBtn.disabled = chatInput.value.trim().length === 0;
-    }
+   function updateSendBtn() {
+      sendBtn.disabled = chatInput.value.trim().length === 0;
+   }
 
-    function appendUserMessage(msg) {
-        chatBox.innerHTML += `
+   function appendUserMessage(msg) {
+      chatBox.innerHTML += `
             <div class="mb-4 text-right">
-                <span class="inline-block bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-100 px-4 py-2 rounded-2xl rounded-tr-none shadow-sm">
+                <span class="inline-block bg-blue-600 text-white px-4 py-2 rounded-2xl rounded-tr-none shadow-sm max-w-[80%] break-words text-left">
                     ${escapeHtml(msg)}
                 </span>
             </div>`;
-        chatBox.scrollTop = chatBox.scrollHeight;
-    }
+      chatBox.scrollTop = chatBox.scrollHeight;
+   }
 
-    function appendBotMessage(msg) {
-        let html = window.marked ? marked.parse(msg) : escapeHtml(msg).replace(/\n/g, "<br>");
-        chatBox.innerHTML += `
+   function appendBotMessage(msg) {
+      // Nếu dùng marked thì parse, không thì hiển thị text thuần
+      const rawHtml = window.marked
+         ? marked.parse(msg)
+         : escapeHtml(msg).replace(/\n/g, "<br>");
+      const html = window.DOMPurify
+         ? DOMPurify.sanitize(rawHtml)
+         : escapeHtml(String(msg || "")).replace(/\n/g, "<br>");
+
+      chatBox.innerHTML += `
             <div class="mb-4 text-left">
-                <div class="inline-block bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 px-4 py-2 rounded-2xl rounded-tl-none shadow-sm bot-msg prose dark:prose-invert max-w-none">
+                <div class="inline-block bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 px-4 py-2 rounded-2xl rounded-tl-none shadow-sm bot-msg prose dark:prose-invert max-w-[90%]">
                     ${html}
                 </div>
             </div>`;
-        chatBox.scrollTop = chatBox.scrollHeight;
-    }
+      chatBox.scrollTop = chatBox.scrollHeight;
+   }
 
-    function appendLoading() {
-        const id = 'loading-' + Date.now();
-        chatBox.innerHTML += `
+   function appendLoading() {
+      const id = "loading-" + Date.now();
+      chatBox.innerHTML += `
             <div id="${id}" class="mb-4 text-left">
-                <span class="inline-block bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 px-4 py-2 rounded-2xl rounded-tl-none animate-pulse">
+                <span class="inline-block bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-400 px-4 py-2 rounded-2xl rounded-tl-none animate-pulse">
                     Đang suy nghĩ...
                 </span>
             </div>`;
-        chatBox.scrollTop = chatBox.scrollHeight;
-        return id;
-    }
+      chatBox.scrollTop = chatBox.scrollHeight;
+      return id;
+   }
 
-    async function sendMessage() {
-        const msg = chatInput.value.trim();
-        if (!msg) return;
+   async function sendMessage() {
+      const msg = chatInput.value.trim();
+      if (!msg) return;
 
-        appendUserMessage(msg);
-        chatInput.value = '';
-        updateSendBtn();
-        
-        chatInput.disabled = true;
-        sendBtn.disabled = true;
-        const loadingId = appendLoading();
+      appendUserMessage(msg);
+      chatInput.value = "";
+      updateSendBtn();
 
-        try {
-            const response = await fetch("{% url 'chat' %}", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/x-www-form-urlencoded",
-                    "X-CSRFToken": getCookie('csrftoken')
-                },
-                body: new URLSearchParams({ message: msg })
-            });
-            const data = await response.json();
-            
-            document.getElementById(loadingId).remove();
-            if (data.status === 'success') {
-                appendBotMessage(data.answer);
-            } else {
-                appendBotMessage("⚠️ Lỗi: " + data.message);
+      chatInput.disabled = true;
+      sendBtn.disabled = true;
+      const loadingId = appendLoading();
+
+      try {
+         const response = await fetch("{% url 'chat' %}", {
+            method: "POST",
+            headers: {
+               "Content-Type": "application/x-www-form-urlencoded",
+               "X-CSRFToken": getCookie("csrftoken"),
+            },
+            body: new URLSearchParams({ message: msg }),
+         });
+
+         let data = null;
+         try {
+            data = await response.json();
+         } catch (_) {
+            data = null;
+         }
+
+         const loadingEl = document.getElementById(loadingId);
+         if (loadingEl) loadingEl.remove();
+
+         if (response.ok && data && data.status === "success") {
+            appendBotMessage(data.answer || "");
+         } else {
+            appendBotMessage(
+               "⚠️ **Lỗi:** " +
+                  (data && data.message
+                     ? data.message
+                     : `Request failed (${response.status})`),
+            );
+         }
+      } catch (e) {
+         const loadingEl = document.getElementById(loadingId);
+         if (loadingEl) loadingEl.remove();
+         appendBotMessage(
+            "❌ **Không thể kết nối tới server.** Vui lòng kiểm tra lại kết nối mạng.",
+         );
+      } finally {
+         chatInput.disabled = false;
+         updateSendBtn();
+         chatInput.focus();
+      }
+   }
+
+   function getCookie(name) {
+      let cookieValue = null;
+      if (document.cookie && document.cookie !== "") {
+         const cookies = document.cookie.split(";");
+         for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === name + "=") {
+               cookieValue = decodeURIComponent(
+                  cookie.substring(name.length + 1),
+               );
+               break;
             }
-        } catch (e) {
-            document.getElementById(loadingId).remove();
-            appendBotMessage("❌ Không thể kết nối tới máy chủ.");
-        } finally {
-            chatInput.disabled = false;
-            updateSendBtn();
-            chatInput.focus();
-    }
-    }
+         }
+      }
+      return cookieValue;
+   }
 
-    function getCookie(name) {
-        let cookieValue = null;
-        if (document.cookie && document.cookie !== '') {
-            const cookies = document.cookie.split(';');
-            for (let i = 0; i < cookies.length; i++) {
-                const cookie = cookies[i].trim();
-                if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                    break;
-                }
-            }
-        }
-        return cookieValue;
-        }
+   chatInput.addEventListener("input", updateSendBtn);
+   chatInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && !sendBtn.disabled) {
+         e.preventDefault();
+         sendMessage();
+      }
+   });
 
-    chatInput.addEventListener('input', updateSendBtn);
-    chatInput.addEventListener('keydown', e => {
-        if (e.key === 'Enter' && !sendBtn.disabled) sendMessage();
-    });
-    sendBtn.onclick = sendMessage;
+   sendBtn.onclick = sendMessage;
+   updateSendBtn();
 </script>
 {% endblock %}
