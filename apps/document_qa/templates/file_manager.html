@@ -1,24 +1,87 @@
-<!-- file_manager.html -->
 {% extends 'base.html' %}
 {% block content %}
-<h2 class="text-2xl font-semibold mb-6 text-blue-300">Quản lý tài liệu</h2>
-<form method="post" enctype="multipart/form-data" class="mb-6 flex items-center gap-4 bg-gray-800 p-4 rounded-xl border border-gray-700">
-    {% csrf_token %}
-    <input type="file" name="doc_file" class="flex-1 text-gray-100 bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
-    <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">Upload File</button>
-</form>
-<div class="overflow-x-auto">
-    <table class="min-w-full bg-gray-800 border border-gray-700 rounded-xl text-gray-100">
-        <thead>
-            <tr>
-                <th class="px-4 py-2 border-b border-gray-700">Tên File</th>
-                <th class="px-4 py-2 border-b border-gray-700">Ngày Upload</th>
-                <th class="px-4 py-2 border-b border-gray-700">Hành động</th>
-            </tr>
-        </thead>
-        <tbody>
-            <!-- File rows here -->
-        </tbody>
-    </table>
+<div class="p-6">
+    <h2 class="text-2xl font-semibold mb-6 text-blue-600 dark:text-blue-300">Quản lý tài liệu</h2>
+
+    <form id="uploadForm" class="mb-6 flex items-center gap-4 bg-white dark:bg-gray-800 p-4 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm transition-colors">
+        {% csrf_token %}
+        <input type="file" id="fileInput" name="doc_file" accept=".pdf,.docx" 
+               class="flex-1 text-gray-900 dark:text-gray-100 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors" />
+        
+        <button type="button" onclick="uploadFile()" id="uploadBtn"
+                class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition flex items-center gap-2 shadow-md disabled:opacity-50">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+            </svg>
+            <span id="btnText">Upload & Embed</span>
+        </button>
+    </form>
+
+    <div id="statusMessage" class="hidden mb-4 p-3 rounded-lg text-sm border transition-all"></div>
+
+    <div class="overflow-x-auto rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
+        <table class="min-w-full bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 transition-colors">
+            <thead>
+                <tr class="bg-gray-50 dark:bg-gray-700/50">
+                    <th class="px-6 py-3 border-b border-gray-200 dark:border-gray-700 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Tên File</th>
+                    <th class="px-6 py-3 border-b border-gray-200 dark:border-gray-700 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Trạng thái</th>
+                    <th class="px-6 py-3 border-b border-gray-200 dark:border-gray-700 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Hành động</th>
+                </tr>
+            </thead>
+            <tbody id="fileTableBody" class="divide-y divide-gray-200 dark:divide-gray-700">
+                <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
+                    <td class="px-6 py-4 whitespace-nowrap text-sm italic text-gray-400" colspan="3">Chưa có tài liệu nào được tải lên.</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
 </div>
+
+<script>
+async function uploadFile() {
+    const fileInput = document.getElementById('fileInput');
+    const btn = document.getElementById('uploadBtn');
+    const btnText = document.getElementById('btnText');
+    const status = document.getElementById('statusMessage');
+    const file = fileInput.files[0];
+
+    if (!file) {
+        alert("Vui lòng chọn một file PDF hoặc Docx!");
+        return;
+    }
+
+    // Hiển thị trạng thái Loading
+    btn.disabled = true;
+    btnText.innerText = "Đang xử lý...";
+    
+    status.className = "mb-4 p-3 rounded-lg text-sm block border bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300";
+    status.innerText = "Hệ thống đang thực hiện băm nhỏ và vector hóa tài liệu. Vui lòng không đóng trang...";
+
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+
+    try {
+        const response = await fetch('{% url "upload_document" %}', {
+            method: 'POST',
+            body: formData
+        });
+        const data = await response.json();
+
+        if (data.status === 'success') {
+            status.className = "mb-4 p-3 rounded-lg text-sm block border bg-green-50 dark:bg-green-900/30 border-green-200 dark:border-green-800 text-green-700 dark:text-green-300";
+            status.innerText = "✅ " + data.message;
+            fileInput.value = '';
+        } else {
+            throw new Error(data.message);
+        }
+    } catch (error) {
+        status.className = "mb-4 p-3 rounded-lg text-sm block border bg-red-50 dark:bg-red-900/30 border-red-200 dark:border-red-800 text-red-700 dark:text-red-300";
+        status.innerText = "❌ Lỗi: " + error.message;
+    } finally {
+        btn.disabled = false;
+        btnText.innerText = "Upload & Embed";
+    }
+}
+</script>
 {% endblock %}

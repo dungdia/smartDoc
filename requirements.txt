@@ -7,3 +7,8 @@ pdfplumber
 docx2txt
 faiss-cpu
 sentence-transformers
+pypdf
+python-magic
+neo4j
+langchain-neo4j
+langchain-huggingface

@@ -1,49 +1,63 @@
-<!-- base.html -->
 <!DOCTYPE html>
-<html>
-<head>
+<html lang="vi" id="htmlRoot"> <head>
     <title>SmartDoc AI</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        // Cấu hình tailwind để nhận biết dark mode qua class
+        tailwind.config = {
+            darkMode: 'class',
+        }
+    </script>
 </head>
-<body class="bg-gray-900 text-gray-100 min-h-screen flex transition-colors duration-300" id="bodyRoot">
-    <aside id="sidebar" class="w-64 bg-gray-800 flex flex-col h-screen shadow-lg">
-        <div class="logo text-2xl font-bold px-6 py-6 border-b border-gray-700 text-blue-400 tracking-wide flex items-center justify-between">
+<body class="bg-slate-50 text-gray-900 dark:bg-gray-900 dark:text-gray-100 min-h-screen flex transition-colors duration-300">
+    
+    <aside id="sidebar" class="w-64 bg-white dark:bg-gray-800 flex flex-col h-screen shadow-lg border-r border-gray-200 dark:border-gray-700">
+        <div class="logo text-2xl font-bold px-6 py-6 border-b border-gray-200 dark:border-gray-700 text-blue-600 dark:text-blue-400 tracking-wide flex items-center justify-between">
             SmartDoc AI
-            <button id="themeToggle" class="ml-2 px-2 py-1 rounded bg-gray-700 text-gray-300 hover:bg-gray-600 transition text-sm">
+            <button id="themeToggle" class="ml-2 px-2 py-1 rounded bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition text-sm">
                 🌙
             </button>
         </div>
         <nav class="flex-1 flex flex-col gap-1 mt-4">
-            <a href="{% url 'chat' %}" class="px-6 py-3 rounded-l-lg transition-colors duration-200 hover:bg-gray-700 hover:text-blue-300 {% if request.resolver_match.url_name == 'chat' %}bg-blue-700 text-white{% endif %}">💬 Chat AI</a>
-            <a href="{% url 'file_manager' %}" class="px-6 py-3 rounded-l-lg transition-colors duration-200 hover:bg-gray-700 hover:text-blue-300 {% if request.resolver_match.url_name == 'file_manager' %}bg-blue-700 text-white{% endif %}">📁 Quản lý File</a>
+            <a href="{% url 'chat' %}" class="px-6 py-3 transition-colors duration-200 hover:bg-blue-50 dark:hover:bg-gray-700 hover:text-blue-600 dark:hover:text-blue-300 {% if request.resolver_match.url_name == 'chat' %}bg-blue-600 text-white{% endif %}">💬 Chat AI</a>
+            <a href="{% url 'file_manager' %}" class="px-6 py-3 transition-colors duration-200 hover:bg-blue-50 dark:hover:bg-gray-700 hover:text-blue-600 dark:hover:text-blue-300 {% if request.resolver_match.url_name == 'file_manager' %}bg-blue-600 text-white{% endif %}">📁 Quản lý File</a>
         </nav>
     </aside>
-    <main id="content" class="flex-1 p-0 bg-gray-900 min-h-screen flex flex-col">
+
+    <main id="content" class="flex-1 p-0 bg-transparent min-h-screen flex flex-col">
         <div class="max-w-full w-full h-full flex-1 flex flex-col">
             {% block content %}{% endblock %}
         </div>
     </main>
+
     <script>
-        // Theme toggle logic
-        const body = document.getElementById('bodyRoot');
+        const html = document.getElementById('htmlRoot');
         const btn = document.getElementById('themeToggle');
-        function setTheme(dark) {
-            if (dark) {
-                body.classList.add('bg-gray-900', 'text-gray-100');
-                body.classList.remove('bg-white', 'text-gray-900');
+
+        function setTheme(isDark) {
+            if (isDark) {
+                html.classList.add('dark');
                 btn.textContent = '🌙';
                 localStorage.setItem('theme', 'dark');
             } else {
-                body.classList.remove('bg-gray-900', 'text-gray-100');
-                body.classList.add('bg-white', 'text-gray-900');
+                html.classList.remove('dark');
                 btn.textContent = '☀️';
                 localStorage.setItem('theme', 'light');
             }
         }
-        btn.onclick = () => setTheme(!body.classList.contains('bg-white'));
-        // On load
-        if (localStorage.getItem('theme') === 'light') setTheme(false);
-        else setTheme(true);
+
+        btn.onclick = () => {
+            // Đảo ngược trạng thái hiện tại của class 'dark'
+            setTheme(!html.classList.contains('dark'));
+        };
+
+        // Khởi tạo theme khi load trang
+        const savedTheme = localStorage.getItem('theme');
+        if (savedTheme === 'light') {
+            setTheme(false);
+        } else {
+            setTheme(true); // Mặc định là dark hoặc theo preference
+        }
     </script>
 </body>
 </html>
