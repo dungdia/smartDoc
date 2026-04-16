@@ -13,7 +13,7 @@ class AIService:
     def __init__(self):
         self.model_name = os.getenv("LLM_MODEL", "gemini-2.5-flash")
         self.history_limit = int(os.getenv("CHAT_HISTORY_LIMIT", 10))
-        self.embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
+        self.embeddings = HuggingFaceEmbeddings(model_name=os.getenv("EMBEDDING_MODEL", "all-MiniLM-L6-v2"))
         self.llm = ChatGoogleGenerativeAI(
             model=self.model_name,
             google_api_key=os.getenv("GEMINI_API_KEY")
@@ -51,6 +51,7 @@ class AIService:
             # Lấy ra 3 đoạn văn bản giống câu hỏi nhất
             docs = vector_db.similarity_search(user_query, k=3)
             context = "\n".join([d.page_content for d in docs])
+        
         rag_content = f"Tài liệu cung cấp:\n{context}\n\nCâu hỏi: {user_query}"
 
         # 3. Gọi AI với context của riêng session đó

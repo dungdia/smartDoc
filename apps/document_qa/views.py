@@ -1,11 +1,18 @@
 import os
 import uuid
 from datetime import datetime, timezone
+import threading
+import hashlib
 
 from django.conf import settings
 from django.shortcuts import render
 from django.http import JsonResponse
 from django.core.files.storage import default_storage
+from django.core.paginator import Paginator
+from django.views.decorators.csrf import csrf_exempt
+
+
+from .models import Document
 
 # Import các service
 from apps.document_qa.service import AIService, DocumentService
@@ -51,7 +58,7 @@ def _build_response(
 
     return JsonResponse(payload, status=http_status)
 
-
+@csrf_exempt
 def chat_view(request):
     """Xử lý giao diện và logic nhắn tin AI"""
     if not request.session.session_key:
@@ -129,34 +136,127 @@ def chat_view(request):
             extra=extra_meta
         )
 
-
+@csrf_exempt
 def file_manager_view(request):
     """Hiển thị trang quản lý file"""
     return render(request, "file_manager.html")
 
+def background_embedding(full_file_path, unique_name, doc_id):
+    """Hàm này sẽ chạy ở luồng riêng biệt"""
+    try:
+        print(f"--- Tiến thành Embedding cho: {unique_name} ---")
+        # Thực hiện embedding (bước tốn thời gian)
+        num_chunks = doc_service.process_file(full_file_path, unique_name)
+        
+        # Sau khi xong, cập nhật trạng thái trong SQL
+        doc_record = Document.objects.get(id=doc_id)
+        doc_record.status = "Success"
+        # Bạn có thể lưu thêm số lượng chunks nếu muốn
+        doc_record.save()
+        print(f"--- Embedding hoàn tất cho: {unique_name} ({num_chunks} chunks) ---")
+    except Exception as e:
+        doc_record = Document.objects.get(id=doc_id)
+        doc_record.status = "Error"
+        doc_record.save()
+        print(f"--- Lỗi embedding {unique_name}: {str(e)} ---")
 
+def calculate_file_hash(file_obj):
+    """Tính mã băm để nhận diện nội dung file duy nhất"""
+    sha256_hash = hashlib.sha256()
+    # Đọc theo từng chunk để không bị tràn RAM với file lớn
+    for chunk in file_obj.chunks():
+        sha256_hash.update(chunk)
+    return sha256_hash.hexdigest()
+
+@csrf_exempt
 def upload_document(request):
-    """Xử lý upload tài liệu và nạp vào VectorDB (RAG)"""
     if request.method == 'POST' and request.FILES.get('file'):
         file = request.FILES['file']
-        
-        # 1. Lưu file tạm thời vào media/uploads/
-        file_name = default_storage.save('uploads/' + file.name, file)
-        file_path = default_storage.path(file_name)
 
+
+        file_hash = calculate_file_hash(file)
+        if Document.objects.filter(file_hash=file_hash).exists():
+            return JsonResponse({'status': 'error', 'message': 'Nội dung file này đã tồn tại trong hệ thống.'})
+        
+        # 1. Xử lý tên và lưu file vật lý (Bước này nhanh, làm trực tiếp)
+        unique_name = doc_service.get_unique_filename(file.name)
+        file_path_in_storage = os.path.join('uploads', unique_name)
+        saved_path = default_storage.save(file_path_in_storage, file)
+        full_file_path = default_storage.path(saved_path)
+
+        # 2. Tạo bản ghi SQL với trạng thái 'Processing'
+        doc_record = Document.objects.create(
+            file_name=file.name,
+            unique_name=unique_name,
+            file_path=full_file_path,
+            file_hash=file_hash,
+            status="Processing"
+        )
+
+        # 3. KÍCH HOẠT CHẠY NỀN: Đẩy việc Embedding sang một Thread khác
+        thread = threading.Thread(
+            target=background_embedding, 
+            args=(full_file_path, unique_name, doc_record.id)
+        )
+        thread.start()
+
+        # 4. TRẢ VỀ NGAY LẬP TỨC
+        return JsonResponse({
+            'status': 'success', 
+            'message': f'File "{file.name}" đang được xử lý nền. Bạn có thể theo dõi trạng thái ở bảng quản lý.'
+        })
+                
+    return JsonResponse({'status': 'error', 'message': 'Yêu cầu không hợp lệ.'})
+
+@csrf_exempt
+def get_files_api(request):
+    """API trả về danh sách file dạng JSON để AJAX gọi"""
+    page_number = request.GET.get('page', 1)
+    page_size = request.GET.get('page_size', 5)
+    
+    files_queryset = Document.objects.all().order_by('-upload_at')
+    paginator = Paginator(files_queryset, page_size)
+    page_obj = paginator.get_page(page_number)
+    
+    data = []
+    for f in page_obj:
+        data.append({
+            "id": f.id,
+            "file_name": f.file_name,
+            "status": f.status,
+            "upload_at": f.upload_at.strftime("%Y-%m-%d %H:%M")
+        })
+        
+    return JsonResponse({
+        "files": data,
+        "has_next": page_obj.has_next(),
+        "has_previous": page_obj.has_previous(),
+        "number": page_obj.number,
+        "num_pages": paginator.num_pages
+    })
+
+@csrf_exempt
+def delete_document(request, file_id):
+    """Xóa đồng bộ: SQL -> Vector DB -> Physical File"""
+    if request.method == "POST":
         try:
-            # 2. Gọi DocumentService để xử lý tài liệu (Cắt nhỏ + Embedding)
-            num_chunks = doc_service.process_file(file_path)
+            # 1. Tìm tài liệu trong SQL bằng UUID
+            doc = Document.objects.get(id=file_id)
+            
+            # 2. Gọi service để xóa Vector trong FAISS và File trên ổ đĩa
+            # Sử dụng unique_name làm chìa khóa định danh
+            success = doc_service.delete_document_vector(doc.unique_name)
+            
+            # 3. Xóa bản ghi trong SQL
+            doc.delete()
             
             return JsonResponse({
                 'status': 'success', 
-                'message': f'Thành công! Đã nạp {num_chunks} đoạn kiến thức từ file {file.name}.'
+                'message': f'Đã xóa tài liệu {doc.file_name} thành công.'
             })
+        except Document.DoesNotExist:
+            return JsonResponse({'status': 'error', 'message': 'Không tìm thấy tài liệu.'}, status=404)
         except Exception as e:
-            return JsonResponse({'status': 'error', 'message': str(e)})
-        # finally:
-        #     # Nếu muốn xóa file sau khi đã nạp vào DB thì bỏ comment dòng dưới
-        #     if os.path.exists(file_path):
-        #         os.remove(file_path)
-                
-    return JsonResponse({'status': 'error', 'message': 'Yêu cầu không hợp lệ hoặc thiếu file.'})
+            return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+            
+    return JsonResponse({'status': 'error', 'message': 'Phương thức không được hỗ trợ.'}, status=405)
